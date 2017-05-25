@@ -47,13 +47,19 @@ function loadSubs () {
   xhttp.send()
 }
 
-function appendSubDiv(num, text) {
+function appendSubDiv(text, id) {
   var div = document.createElement("div")
   div.style.paddingTop = "15px"
-  div.id = 'subs' + num
+  div.id = id
   var t = document.createTextNode(text)
   div.appendChild(t);
   document.getElementById("subs-div").appendChild(div)
+}
+
+function timeToSeconds(time) {
+  var a = time.split(':'); // split it at the colons
+  var seconds = (+a[0])*60*60 + (+a[1])*60 + (+a[2])
+  return seconds
 }
 
 function parseSubtitles (text) {
@@ -62,31 +68,69 @@ function parseSubtitles (text) {
   for (var i = 2; i < lines.length; i += 4) {
     var number = lines[i]
     var timerange = lines[i + 1]
-    var text = lines[i + 2]
-    subtitles.push({
-      timerange: timerange,
-      text: text,
-    })
-    appendSubDiv(number, text)
+    if (timerange) {
+      var timeElements = timerange.split(' --> ')
+      var text = lines[i + 2]
+      var id = 'subs' + number
+      subtitles.push({
+        begin: timeToSeconds(timeElements[0]),
+        end: timeToSeconds(timeElements[1]),
+        text: text,
+        id: id,
+      })
+      appendSubDiv(text, id)
+    }
+  }
+  console.log(subtitles)
+}
+
+function boldSubtitle(time) {
+  for (var i = 0; i < subtitles.length; i++) {
+    var sub = subtitles[i]
+
+    // Make default color
+    var subElement = document.getElementById(sub.id)
+    subElement.style.color = ''
+
+    if (sub.begin <= time && time <= sub.end) {
+      console.log(sub.id)
+
+      // Make it green
+      var subElement = document.getElementById(sub.id)
+      subElement.style.color = 'green'
+
+      // Scroll to element
+      var topPos = document.getElementById(sub.id).offsetTop;
+      document.getElementById('subs-div').scrollTop = topPos - 50;
+    }
   }
 }
 
+var video = null
+
 function subscribeVideoEvents () {
-  var video = document.getElementsByTagName('video')[0]
-  if (!video) {
+  var videoElem = document.getElementsByTagName('video')[0]
+  if (!videoElem) {
     // Retry later
-    setTimeout(subscribeVideoEvents, 20000)
     return
   }
 
+  if (video == videoElem) {
+    // We have already subscribed to this element, ignote
+    return
+  }
+
+  video = videoElem
   video.addEventListener("timeupdate", function() {
     var time = this.currentTime
     console.log(time)
+    boldSubtitle(time)
   }, true);
 }
 
 console.log('loading subtitles...')
 insertSubsDiv()
 loadSubs()
-subscribeVideoEvents()
+//subscribeVideoEvents()
+setInterval(subscribeVideoEvents, 2000)
 console.log('done!')
